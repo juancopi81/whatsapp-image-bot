@@ -1,11 +1,13 @@
 # WhatsApp Image Stylization Bot - Development Guide
 
 ## Overview
+
 This guide outlines the step-by-step development process for building a WhatsApp bot that receives images via webhook, applies Simpsons-style processing through external APIs, and returns the stylized image.
 
 ## Prerequisites
+
 - Python 3.8+
-- Flask framework knowledge
+- FastAPI framework knowledge
 - Access to image processing API (fal.ai or Replicate)
 - Cloud storage service (Cloudinary or AWS S3)
 - WhatsApp Business API or Twilio integration
@@ -24,11 +26,11 @@ whatsapp-image-bot/
 ├── src/
 │   └── whatsapp_image_bot/
 │       ├── __init__.py
-│       ├── app.py                # Flask application factory
+│       ├── app.py                # FastAPI application factory
 │       ├── config.py             # Configuration management
 │       ├── api/
 │       │   ├── __init__.py
-│       │   ├── routes.py         # Flask routes/endpoints
+│       │   ├── routes.py         # FastAPI routes/endpoints
 │       │   └── webhooks.py       # Webhook handlers
 │       ├── services/
 │       │   ├── __init__.py
@@ -61,212 +63,88 @@ _Note: `.venv/` is auto-managed by uv and should be included in `.gitignore`._
 
 ## Development Phases
 
-### Phase 1: Project Setup & Configuration
-**Goal**: Establish project foundation and environment
+### Phase 1: Foundation & Core API
+
+**Goal**: Establish the project, configure it, and create a functional webhook that validates incoming data. This phase combines initial setup with the creation of the main API endpoint.
 
 **Tasks**:
-- Set up virtual environment and dependencies
-- Configure project structure according to recommended layout
-- Create configuration management system
-- Set up environment variables (.env)
-- Initialize git repository with proper .gitignore
+
+- Set up the project structure and initialize the `git` repository.
+- Use `uv` to set up the virtual environment and manage dependencies in `pyproject.toml`.
+- Implement `config.py` to load all necessary environment variables from a `.env` file.
+- Create the main FastAPI application in `app.py`.
+- Define a Pydantic model to represent the expected data from a Twilio webhook.
+- Implement the primary webhook endpoint in the `api` module, using the Pydantic model for automatic request validation.
+- Create a `/health` endpoint for monitoring.
 
 **Completion Criteria**:
-- [ ] Project structure matches recommended layout
-- [ ] Flask app runs successfully with basic "Hello World" endpoint
-- [ ] Configuration loads environment variables correctly
-- [ ] All dependencies install without errors
 
-### Phase 2: Core Flask Application
-**Goal**: Create basic web server with webhook endpoint
+- [x] Project structure is in place.
+- [x] All initial dependencies (`fastapi`, `uvicorn`, `python-dotenv`, `twilio`) install correctly using `uv`.
+- [x] The FastAPI server runs successfully via `uvicorn`.
+- [x] The `/health` endpoint returns a `200 OK` status.
+- [ ] The webhook endpoint correctly receives and validates test data from Twilio, automatically rejecting invalid requests.
+
+---
+
+### Phase 2: External Service Integration
+
+**Goal**: Build the clients that communicate with all external APIs, keeping each one modular and independent.
 
 **Tasks**:
-- Implement Flask application factory pattern
-- Create webhook endpoint for receiving WhatsApp messages
-- Add request validation and error handling
-- Set up logging system
-- Create health check endpoint
+
+- In `clients/fal_client.py`, implement the functions to communicate with the `fal.ai` API (handle authentication, send requests, and parse responses).
+- In `services/cloud_storage.py`, implement functions to upload image data to your chosen provider (e.g., S3 or Cloudinary) and return a public URL.
+- In `services/whatsapp_client.py`, create a simple wrapper around the Twilio library. This should provide clean methods like `send_reply(to, body, media_url)` to hide Twilio-specific logic.
 
 **Completion Criteria**:
-- [ ] Flask app starts without errors
-- [ ] Webhook endpoint responds to POST requests
-- [ ] Request validation works for required fields
-- [ ] Logs are properly formatted and saved
-- [ ] Health check endpoint returns 200 OK
 
-### Phase 3: WhatsApp Integration
-**Goal**: Handle incoming WhatsApp messages and extract image URLs
+- [ ] The external AI API client (`fal_client.py`) can successfully authenticate and get a response from the service.
+- [ ] The cloud storage service (`cloud_storage.py`) can successfully upload a test file and return a valid public URL.
+- [ ] The WhatsApp client (`whatsapp_client.py`) can successfully send a test message to your phone number via the Twilio API.
+
+---
+
+### Phase 3: End-to-End Workflow & Business Logic
+
+**Goal**: Connect all the independent components together to create the complete, functioning application workflow.
 
 **Tasks**:
-- Implement WhatsApp webhook request parsing
-- Extract image URLs from incoming messages
-- Validate image URL accessibility
-- Handle different message types gracefully
-- Implement response formatting for WhatsApp
+
+- Implement the main orchestrator logic in `services/image_processor.py`. This function will be the "brain" of the application.
+- The `image_processor` will:
+  1.  Be called by the webhook with an incoming image URL.
+  2.  Use the `fal_client` to get the stylized image data.
+  3.  Use the `cloud_storage` service to upload that new image and get a permanent URL.
+  4.  Return the final, permanent URL.
+- Update the webhook handler in `api/webhooks.py` to call the `image_processor` service.
+- Use the `whatsapp_client` within the webhook handler to send the final image URL back to the user.
+- Implement comprehensive error handling for the entire workflow (e.g., what happens if the AI API fails?).
 
 **Completion Criteria**:
-- [ ] Successfully parses WhatsApp webhook payloads
-- [ ] Extracts image URLs from messages
-- [ ] Validates image URLs are accessible
-- [ ] Handles non-image messages appropriately
-- [ ] Sends properly formatted responses back to WhatsApp
 
-### Phase 4: Image Download & Validation
-**Goal**: Download images from URLs and validate them
+- [ ] Sending an image to the WhatsApp number successfully triggers the full workflow.
+- [ ] The stylized image is correctly uploaded to cloud storage.
+- [ ] The user receives a WhatsApp message back containing the new image.
+- [ ] The application handles and logs errors from external services gracefully.
+
+---
+
+### Phase 4: Production Readiness
+
+**Goal**: Ensure the application is tested, secure, documented, and ready for deployment.
 
 **Tasks**:
-- Implement image download functionality
-- Add image format validation (JPEG, PNG, etc.)
-- Implement file size limits
-- Add image corruption detection
-- Handle download timeouts and errors
+
+- Write unit and integration tests in the `tests/` directory, mocking external API calls to ensure logic is correct and reliable.
+- Implement security best practices (e.g., validating Twilio's request signature in your webhook).
+- Add rate limiting to the API endpoints to prevent abuse.
+- Create the `Dockerfile` and `docker-compose.yml` to containerize the application.
+- Finalize the API documentation that FastAPI auto-generates at `/docs` by adding clear descriptions and examples to your endpoint functions and Pydantic models.
 
 **Completion Criteria**:
-- [ ] Downloads images from URLs successfully
-- [ ] Validates supported image formats
-- [ ] Rejects oversized images
-- [ ] Handles corrupted or invalid images
-- [ ] Manages download timeouts gracefully
 
-### Phase 5: External API Integration
-**Goal**: Connect to image processing APIs (fal.ai/Replicate)
-
-**Tasks**:
-- Implement API client for chosen service (fal.ai or Replicate)
-- Add authentication handling
-- Implement image upload to processing service
-- Handle API rate limits and errors
-- Add retry logic for failed requests
-
-**Completion Criteria**:
-- [ ] Successfully authenticates with chosen API
-- [ ] Uploads images to processing service
-- [ ] Receives processed image URLs
-- [ ] Handles API errors and rate limits
-- [ ] Implements exponential backoff for retries
-
-### Phase 6: Cloud Storage Integration
-**Goal**: Upload processed images to cloud storage
-
-**Tasks**:
-- Implement cloud storage client (Cloudinary or AWS S3)
-- Add file upload functionality
-- Generate public URLs for uploaded images
-- Implement file cleanup/lifecycle management
-- Add error handling for upload failures
-
-**Completion Criteria**:
-- [ ] Uploads images to cloud storage successfully
-- [ ] Generates accessible public URLs
-- [ ] Handles upload failures gracefully
-- [ ] Implements file cleanup policies
-- [ ] Manages storage quotas/limits
-
-### Phase 7: End-to-End Workflow
-**Goal**: Integrate all components into complete workflow
-
-**Tasks**:
-- Chain all services together (webhook → download → process → upload → respond)
-- Add comprehensive error handling
-- Implement status tracking for long-running processes
-- Add request timeout handling
-- Create workflow logging
-
-**Completion Criteria**:
-- [ ] Complete image processing workflow works end-to-end
-- [ ] Handles errors at each step appropriately
-- [ ] Provides meaningful error messages to users
-- [ ] Processes requests within acceptable timeframes
-- [ ] Logs workflow progress accurately
-
-### Phase 8: Testing & Quality Assurance
-**Goal**: Ensure reliability and robustness
-
-**Tasks**:
-- Write unit tests for all services
-- Create integration tests for workflows
-- Add mock testing for external APIs
-- Implement load testing
-- Add error scenario testing
-
-**Completion Criteria**:
-- [ ] Unit tests achieve >80% code coverage
-- [ ] Integration tests pass consistently
-- [ ] Mock tests simulate API failures
-- [ ] Load tests handle expected traffic
-- [ ] Error scenarios are properly tested
-
-### Phase 9: Security & Performance
-**Goal**: Harden application for production use
-
-**Tasks**:
-- Implement input sanitization
-- Add rate limiting to endpoints
-- Secure API keys and credentials
-- Optimize image processing performance
-- Add monitoring and alerting
-
-**Completion Criteria**:
-- [ ] Input validation prevents injection attacks
-- [ ] Rate limiting prevents abuse
-- [ ] Credentials are securely stored
-- [ ] Performance meets response time requirements
-- [ ] Monitoring alerts on failures
-
-### Phase 10: Deployment & Documentation
-**Goal**: Deploy application and create operational documentation
-
-**Tasks**:
-- Create Docker configuration
-- Set up deployment pipeline
-- Create operational runbooks
-- Document API endpoints
-- Create troubleshooting guide
-
-**Completion Criteria**:
-- [ ] Application deploys successfully via Docker
-- [ ] Deployment pipeline works reliably
-- [ ] Documentation is complete and accurate
-- [ ] API endpoints are properly documented
-- [ ] Troubleshooting guide covers common issues
-
-## Testing Strategy
-
-### Unit Tests
-- Test individual service functions
-- Mock external API calls
-- Validate input/output handling
-
-### Integration Tests
-- Test complete workflows
-- Use test instances of external services
-- Validate error propagation
-
-### Load Tests
-- Simulate concurrent users
-- Test API rate limit handling
-- Validate performance under load
-
-## Monitoring & Maintenance
-
-### Key Metrics
-- Request processing time
-- Error rates by service
-- External API response times
-- Storage usage
-- User engagement
-
-### Alerts
-- High error rates
-- API failures
-- Storage quota exceeded
-- Performance degradation
-
-## Success Criteria
-The application is considered complete when:
-- All phase completion criteria are met
-- End-to-end workflow processes images successfully
-- Error handling provides meaningful user feedback
-- Performance meets defined SLAs
-- Security requirements are satisfied
-- Documentation is comprehensive and accurate
+- [ ] Unit tests provide adequate coverage of the core logic.
+- [ ] The application can be successfully built and run using Docker.
+- [ ] Security checks (like signature validation) are implemented and working.
+- [ ] The automatically generated API documentation at `/docs` is clear and complete.
