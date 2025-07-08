@@ -7,7 +7,10 @@ authors = [
     { name = "Juan Pineros", email = "juancarlos@sketchpro.ai" }
 ]
 requires-python = ">=3.11"
-dependencies = []
+dependencies = [
+    "flask>=3.1.1",
+    "python-dotenv>=1.1.1",
+]
 
 [project.scripts]
 whatsapp-image-bot = "whatsapp_image_bot:main"
@@ -15,3 +18,34 @@ whatsapp-image-bot = "whatsapp_image_bot:main"
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[tool.black]
+line-length = 88        # PEP 8 + slightly wider monitors
+target-version = ["py311"]
+skip-string-normalization = true  # keep your quotes as-is
+
+[tool.ruff]
+line-length = 88
+target-version = "py311"
+extend-select = [       # extra rule families
+  "I",   # isort-style import ordering
+  "B",   # bugbear (common logic errors)
+  "D",   # pydocstyle (docstring conventions)
+  "C4",  # flake8-comprehensions
+]
+ignore = ["D401"]       #  example: allow IMPERATIVE docstring mood
+
+[tool.ruff.format]       # Ruff’s Black-compatible formatter
+quote-style = "preserve" # match Black
+indent-style = "space"
+preview = true           # enables the next-gen formatter
+
+[tool.isort]             # only needed until Ruff formats imports
+profile = "black"
+
+[dependency-groups]
+dev = [
+    "black>=25.1.0",
+    "pre-commit>=4.2.0",
+    "ruff>=0.12.2",
+]
