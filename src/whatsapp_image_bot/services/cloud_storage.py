@@ -1,0 +1,1 @@
+# Placeholder for Cloudinary/S3 upload 

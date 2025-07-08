@@ -15,6 +15,7 @@ This guide outlines the step-by-step development process for building a WhatsApp
 ```text
 whatsapp-image-bot/
 ├── README.md
+├── DEVELOPMENT_GUIDE.md
 ├── pyproject.toml
 ├── uv.lock                # Created after adding dependencies with uv
 ├── .python-version        # Python version pin (created by uv)
