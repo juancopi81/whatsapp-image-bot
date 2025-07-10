@@ -83,7 +83,7 @@ _Note: `.venv/` is auto-managed by uv and should be included in `.gitignore`._
 - [x] All initial dependencies (`fastapi`, `uvicorn`, `python-dotenv`, `twilio`) install correctly using `uv`.
 - [x] The FastAPI server runs successfully via `uvicorn`.
 - [x] The `/health` endpoint returns a `200 OK` status.
-- [ ] The webhook endpoint correctly receives and validates test data from Twilio, automatically rejecting invalid requests.
+- [x] The webhook endpoint correctly receives and validates test data from Twilio, automatically rejecting invalid requests.
 
 ---
 
