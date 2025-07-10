@@ -2,7 +2,7 @@
 """FastAPI application for the WhatsApp Image Stylization Bot.
 
 This module creates and configures the FastAPI application,
-and includes routes for the root endpoint and a simple health check.
+registers the API routes, and includes routes for the root endpoint and a simple health check.
 The API documentation is automatically generated and available at /docs.
 """
 
@@ -10,6 +10,7 @@ import uvicorn
 from fastapi import FastAPI
 from pydantic import BaseModel
 
+from .api.routes import api_router
 from .config import Config
 
 
@@ -32,6 +33,10 @@ app = FastAPI(
 # Load configuration (can be used in other parts of the app if needed)
 app_config = Config()
 
+# --- Include API Routes ---
+# This makes all routes defined in api_router available
+# under the /api prefix.
+app.include_router(api_router, prefix="/api")
 
 # --- API Endpoints ---
 
