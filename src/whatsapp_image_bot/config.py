@@ -14,7 +14,12 @@ load_dotenv()
 class Config:
     """Application settings loaded from environment variables."""
 
-    FLASK_ENV: str = os.getenv("FLASK_ENV", "production")
     TWILIO_ACCOUNT_SID: Optional[str] = os.getenv("TWILIO_ACCOUNT_SID")
     TWILIO_AUTH_TOKEN: Optional[str] = os.getenv("TWILIO_AUTH_TOKEN")
-    FAL_API_KEY: Optional[str] = os.getenv("FAL_API_KEY")
+    FAL_KEY: Optional[str] = os.getenv("FAL_KEY")
+
+    # AWS - S3
+    AWS_ACCESS_KEY_ID: Optional[str] = os.getenv("AWS_ACCESS_KEY_ID")
+    AWS_SECRET_ACCESS_KEY: Optional[str] = os.getenv("AWS_SECRET_ACCESS_KEY")
+    AWS_REGION: Optional[str] = os.getenv("AWS_REGION")
+    S3_BUCKET_NAME: Optional[str] = os.getenv("S3_BUCKET_NAME")
