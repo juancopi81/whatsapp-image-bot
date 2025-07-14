@@ -100,7 +100,7 @@ _Note: `.venv/` is auto-managed by uv and should be included in `.gitignore`._
 **Completion Criteria**:
 
 - [x] The external AI API client (`fal_client.py`) can successfully authenticate and get a response from the service.
-- [ ] The cloud storage service (`cloud_storage.py`) can successfully upload a test file and return a valid public URL.
+- [x] The cloud storage service (`cloud_storage.py`) can successfully upload a test file and return a valid public URL.
 - [ ] The WhatsApp client (`whatsapp_client.py`) can successfully send a test message to your phone number via the Twilio API.
 
 ---
