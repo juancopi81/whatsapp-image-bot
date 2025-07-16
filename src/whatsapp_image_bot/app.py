@@ -1,4 +1,3 @@
-# src/whatsapp_image_bot/app.py
 """FastAPI application for the WhatsApp Image Stylization Bot.
 
 This module creates and configures the FastAPI application,
