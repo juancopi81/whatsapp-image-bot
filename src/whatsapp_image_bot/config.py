@@ -14,8 +14,12 @@ load_dotenv()
 class Config:
     """Application settings loaded from environment variables."""
 
+    # TWILIO
     TWILIO_ACCOUNT_SID: Optional[str] = os.getenv("TWILIO_ACCOUNT_SID")
     TWILIO_AUTH_TOKEN: Optional[str] = os.getenv("TWILIO_AUTH_TOKEN")
+    TWILIO_PHONE_NUMBER: Optional[str] = os.getenv("TWILIO_PHONE_NUMBER")
+
+    # FAL
     FAL_KEY: Optional[str] = os.getenv("FAL_KEY")
 
     # AWS - S3
