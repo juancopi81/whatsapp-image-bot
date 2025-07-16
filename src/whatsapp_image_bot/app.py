@@ -9,7 +9,7 @@ import uvicorn
 from fastapi import FastAPI
 from pydantic import BaseModel
 
-from .api.routes import api_router
+from .api import api_router
 from .config import Config
 
 
