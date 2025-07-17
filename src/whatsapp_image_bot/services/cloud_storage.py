@@ -78,17 +78,26 @@ class S3StorageService:
             # Construct the standard public URL for the object
             public_url = f"https://{self.bucket_name}.s3.{self.region}.amazonaws.com/{object_name}"
 
-            logger.info(f"✅ Successfully uploaded {object_name} to {public_url}")
+            logger.info(
+                "✅ Successfully uploaded",
+                extra={"object_name": object_name, "public_url": public_url},
+            )
             return public_url
 
         except NoCredentialsError:
             logger.error("❌ Credentials not available for AWS S3.")
             return None
         except ClientError as e:
-            logger.error(f"❌ An S3 client error occurred: {e}")
+            logger.error(
+                "❌ An S3 client error occurred",
+                extra={"error": e},
+            )
             return None
         except Exception as e:
-            logger.error(f"❌ An unexpected error occurred during upload: {e}")
+            logger.error(
+                "❌ An unexpected error occurred during upload",
+                extra={"error": e},
+            )
             return None
 
 

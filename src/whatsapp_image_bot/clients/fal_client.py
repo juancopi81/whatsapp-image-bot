@@ -63,5 +63,5 @@ class FalClient(BaseAIClient):
                 raise Exception("API call succeeded but returned no images.")
 
         except Exception:
-            logger.error("Error calling fal.ai", exc_info=True)
+            logger.exception("Error calling fal.ai", extra={"image_url": image_url})
             raise

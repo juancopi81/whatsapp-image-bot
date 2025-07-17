@@ -65,9 +65,15 @@ class WhatsAppClient:
                 body=body,
                 media_url=media_url,
             )
-            logger.info(f"Reply sent to {to}. Message SID: {message.sid}")
+            logger.info(
+                "Reply sent",
+                extra={"to": to, "message_sid": message.sid},
+            )
             return message
 
         except TwilioRestException as e:
-            logger.error(f"Error sending reply to {to}: {e}")
+            logger.error(
+                "Error sending reply",
+                extra={"to": to, "error": e},
+            )
             raise e

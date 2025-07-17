@@ -43,7 +43,7 @@ async def process_image(original_url: str, message_sid: str) -> str:
 
         # 1. Stylize the image
         stylized_url = await fal_client.stylize_image(original_url)
-        logger.info(f"Stylized image URL: {stylized_url}")
+        logger.info("Stylized image URL", extra={"url": stylized_url})
 
         # 2. Get image bytes from stylized URL
         image_bytes = await download_image_from_url(stylized_url)
