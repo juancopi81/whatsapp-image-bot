@@ -146,3 +146,17 @@ The new 'process_image' function orchestrates the following steps:
 
 This service connects the AI client, the downloader utility, and the cloud storage service. It includes comprehensive logging and error handling to ensure the process is resilient and traceable.
 ```
+
+## Code Style Preferences
+
+### Docstring and Typing Guidelines
+
+- Use this file as an example `src/whatsapp_image_bot/services/image_processor.py`. Remember to:
+  - Use comprehensive type hints for all function parameters and return values
+  - Write detailed docstrings that explain:
+    - Function purpose
+    - Parameters with their types and descriptions
+    - Return value type and description
+    - Any potential exceptions raised
+  - Follow Google-style docstring format with clear, concise descriptions
+  - Include type annotations that make the code's intent and data flow explicit
