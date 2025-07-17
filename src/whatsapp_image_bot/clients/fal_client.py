@@ -5,7 +5,7 @@ This client is used to stylize an image using the fal.ai API.
 
 import fal_client
 
-from whatsapp_image_bot.utils.logger import get_logger
+from whatsapp_image_bot.utils import get_logger
 
 from .base import BaseAIClient
 

@@ -16,7 +16,7 @@ from twilio.rest import Client
 from twilio.rest.api.v2010.account.message import MessageInstance
 
 from whatsapp_image_bot.config import Config
-from whatsapp_image_bot.utils.logger import get_logger
+from whatsapp_image_bot.utils import get_logger
 
 # --- Logger ---
 logger = get_logger(__name__)

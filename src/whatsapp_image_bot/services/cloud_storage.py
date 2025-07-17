@@ -9,7 +9,7 @@ import boto3
 from botocore.exceptions import ClientError, NoCredentialsError
 
 from whatsapp_image_bot.config import Config
-from whatsapp_image_bot.utils.logger import get_logger
+from whatsapp_image_bot.utils import get_logger
 
 # Define public API for this module
 __all__ = ["s3_service"]
