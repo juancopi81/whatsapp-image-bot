@@ -40,6 +40,7 @@ async def _ensure_public_url(url: str, message_sid: str, ts: int) -> str:
 
     async with httpx.AsyncClient(
         auth=httpx.BasicAuth(cfg.TWILIO_ACCOUNT_SID, cfg.TWILIO_AUTH_TOKEN),
+        follow_redirects=True,
     ) as client:
         response = await client.get(url)
         response.raise_for_status()
