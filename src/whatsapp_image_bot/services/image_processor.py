@@ -204,7 +204,12 @@ async def process_image(
         elapsed_ms = round((time.perf_counter() - start_time) * 1000, 1)
         logger.info(
             "Uploaded to S3",
-            extra={"sid": message_sid, "url": s3_url, "elapsed_ms": elapsed_ms},
+            extra={
+                "sid": message_sid,
+                "url": s3_url,
+                "elapsed_ms": elapsed_ms,
+                "public_input_url": public_input_url,
+            },
         )
         return s3_url
 
