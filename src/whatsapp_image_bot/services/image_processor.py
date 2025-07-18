@@ -25,8 +25,48 @@ from whatsapp_image_bot.utils.logger import get_logger
 logger = get_logger(__name__)
 s3_service = S3StorageService()
 
+# ---------------------------------------------------------------------------
+# Reusable clients (singleton-style)
+# ---------------------------------------------------------------------------
+_fal_client = FalClient()
+_twilio_http_client: httpx.AsyncClient | None = None
+
+
+async def _get_twilio_http_client(cfg: Config) -> httpx.AsyncClient:
+    """Lazily create (and then reuse) a single AsyncClient for Twilio media fetches.
+
+    NOTE: Call `shutdown_clients()` at application shutdown to close it cleanly.
+    """
+    global _twilio_http_client
+    if _twilio_http_client is None:
+        # The calling context (_ensure_public_url) already validates these are not None.
+        # We assert here to satisfy the type checker.
+        assert cfg.TWILIO_ACCOUNT_SID is not None
+        assert cfg.TWILIO_AUTH_TOKEN is not None
+        _twilio_http_client = httpx.AsyncClient(
+            auth=httpx.BasicAuth(cfg.TWILIO_ACCOUNT_SID, cfg.TWILIO_AUTH_TOKEN),
+            follow_redirects=True,
+            timeout=HTTP_TIMEOUT,
+        )
+    return _twilio_http_client
+
+
+async def shutdown_clients() -> None:
+    """Optional: close shared HTTP resources (call from FastAPI shutdown event)."""
+    global _twilio_http_client
+    if _twilio_http_client is not None:
+        await _twilio_http_client.aclose()
+        _twilio_http_client = None
+
+
 # Explicit exports
-__all__ = ["process_image", "MediaValidationError", "MediaDownloadError", "UploadError"]
+__all__ = [
+    "process_image",
+    "MediaValidationError",
+    "MediaDownloadError",
+    "UploadError",
+    "shutdown_clients",
+]
 
 
 # ---------------------------------------------------------------------------
@@ -90,14 +130,11 @@ async def _ensure_public_url(url: str, message_sid: str, ts: int) -> str:
     if not cfg.TWILIO_ACCOUNT_SID or not cfg.TWILIO_AUTH_TOKEN:
         raise MediaValidationError("Twilio credentials are not configured.")
 
-    async with httpx.AsyncClient(
-        auth=httpx.BasicAuth(cfg.TWILIO_ACCOUNT_SID, cfg.TWILIO_AUTH_TOKEN),
-        follow_redirects=True,
-    ) as client:
-        try:
-            response = await _fetch_with_retry(url, client)
-        except Exception as exc:
-            raise MediaDownloadError(f"Failed to download Twilio media: {exc}") from exc
+    client = await _get_twilio_http_client(cfg)
+    try:
+        response = await _fetch_with_retry(url, client)
+    except Exception as exc:
+        raise MediaDownloadError(f"Failed to download Twilio media: {exc}") from exc
 
     # Upload the original image to S3 so fal.ai can reach it
     # Get the extension from the URL
@@ -159,7 +196,7 @@ async def process_image(
 
     """
     s3 = s3 or s3_service
-    fal_client = fal_client or FalClient()
+    fal_client = fal_client or _fal_client
 
     try:  # noqa: TRY301 - keep single main try for logging & timing
         start_time = time.perf_counter()

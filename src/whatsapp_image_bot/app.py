@@ -11,6 +11,10 @@ from pydantic import BaseModel
 
 from .api import api_router
 from .config import Config
+from .services.image_processor import shutdown_clients
+from .utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 # --- Pydantic Models for Responses ---
@@ -28,6 +32,14 @@ app = FastAPI(
     description="API for processing and stylizing images from WhatsApp.",
     version="0.1.0",
 )
+
+
+@app.on_event("shutdown")
+async def on_shutdown():
+    """Gracefully close any open clients or connections."""
+    logger.info("Application shutting down. Closing clients.")
+    await shutdown_clients()
+
 
 # Load configuration (can be used in other parts of the app if needed)
 app_config = Config()
