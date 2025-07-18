@@ -15,7 +15,12 @@ from twilio.request_validator import RequestValidator
 from twilio.twiml.messaging_response import MessagingResponse
 
 from whatsapp_image_bot.config import Config
-from whatsapp_image_bot.services.image_processor import process_image
+from whatsapp_image_bot.services.image_processor import (
+    MediaDownloadError,
+    MediaValidationError,
+    UploadError,
+    process_image,
+)
 from whatsapp_image_bot.services.whatsapp_client import WhatsAppClient
 from whatsapp_image_bot.utils.logger import get_logger
 
@@ -147,6 +152,7 @@ async def handle_incoming_message(request: Request) -> Response:
     """
     try:
         raw_params = await _parse_form_and_verify_signature(request)
+        logger.debug("Successfully parsed and verified Twilio signature")
     except SignatureError:
         # Deliberately minimal info; respond 403 so Twilio can notice & you can debug
         return Response(status_code=status.HTTP_403_FORBIDDEN)
@@ -227,15 +233,32 @@ async def handle_incoming_message(request: Request) -> Response:
             original_url=webhook_request.media_url,
             message_sid=webhook_request.message_sid,
         )
-    except ValueError as ve:
+    except MediaValidationError as ve:
         # Anticipated validation issues (e.g. unsupported MIME later)
         logger.warning(
-            "Image validation or processing error",
+            "Image validation error",
             extra={"sid": webhook_request.message_sid, "error": str(ve)},
+        )
+        error_str = str(ve).lower()
+        if "size limit" in error_str:
+            reply_body = "The image is too large. Please send one under 5MB. 📏"
+        elif "media type" in error_str:
+            reply_body = (
+                "That image format isn't supported. Please send a JPG, PNG, or WEBP. 🖼️"
+            )
+        else:
+            reply_body = (
+                "That image could not be processed (validation error). Try another one."
+            )
+        await _safe_send_reply(to=webhook_request.sender_number, body=reply_body)
+    except (MediaDownloadError, UploadError) as e:
+        logger.warning(
+            "Image processing error",
+            extra={"sid": webhook_request.message_sid, "error": str(e)},
         )
         await _safe_send_reply(
             to=webhook_request.sender_number,
-            body="That image could not be processed (validation error). Try another one.",
+            body="There was a problem downloading or saving your image. Please try again.",
         )
     except Exception:
         logger.exception(
