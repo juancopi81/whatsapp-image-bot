@@ -1,17 +1,20 @@
 """Webhook handlers for the WhatsApp Image Stylization Bot.
 
-This module receives Twilio webhooks, orchestrates image stylization, and
-replies to the user. It keeps the FastAPI event-loop responsive by running
-blocking Twilio calls in executor threads.
+This module receives Twilio webhooks, verifies authenticity, orchestrates image
+stylization, and replies to the user. It keeps the FastAPI event-loop responsive
+by running blocking Twilio calls in executor threads.
 """
 
 import asyncio
-from typing import Optional
+from typing import Any, Dict, Optional
+from urllib.parse import parse_qsl, urlparse
 
-from fastapi import APIRouter, Depends, Form, Response
-from pydantic import BaseModel, Field
+from fastapi import APIRouter, Request, Response, status
+from pydantic import BaseModel, Field, ValidationError
+from twilio.request_validator import RequestValidator
 from twilio.twiml.messaging_response import MessagingResponse
 
+from whatsapp_image_bot.config import Config
 from whatsapp_image_bot.services.image_processor import process_image
 from whatsapp_image_bot.services.whatsapp_client import WhatsAppClient
 from whatsapp_image_bot.utils.logger import get_logger
@@ -19,94 +22,190 @@ from whatsapp_image_bot.utils.logger import get_logger
 router = APIRouter()
 logger = get_logger(__name__)
 
+# Reusable client (lightweight wrapper around Twilio REST).
+_whatsapp_client = WhatsAppClient()
+
 
 # ---------------------------------------------------------------------------
-# Incoming webhook data model (parsed from Twilio form‑encoded payload)
+# Incoming webhook data model
 # ---------------------------------------------------------------------------
 class TwilioWebhookRequest(BaseModel):
     """Parsed payload for a Twilio WhatsApp webhook."""
 
-    sender_number: str = Field(
-        ...,
-        description="Sender (WhatsApp) number in E.164 format",
-        alias="From",
-        title="Sender (WhatsApp) number in E.164 format",
-    )
-    message_sid: str = Field(
-        ...,
-        description="Unique ID for this inbound message",
-        alias="MessageSid",
-        title="Unique ID for this inbound message",
-    )
-    num_media: int = Field(
-        ...,
-        description="How many media items were attached",
-        alias="NumMedia",
-        title="How many media items were attached",
-    )
-    media_url: Optional[str] = Field(
-        None,
-        description="URL of the first media item",
-        alias="MediaUrl0",
-        title="URL of the first media item",
-    )
+    sender_number: str = Field(..., alias="From")
+    message_sid: str = Field(..., alias="MessageSid")
+    num_media: int = Field(..., alias="NumMedia")
+    media_url: Optional[str] = Field(None, alias="MediaUrl0")
 
-    # FastAPI cannot yet infer "application/x-www-form-urlencoded" into a
-    # Pydantic model directly.  The ``as_form`` helper bridges that gap so the
-    # model can still be injected with ``Depends`` *and* retain runtime
-    # validation + OpenAPI docs.
-    @classmethod
-    def as_form(  # noqa: N802 – keep Twilio’s original field names
-        cls,
-        From: str = Form(...),  # sender WhatsApp number
-        MessageSid: str = Form(...),  # unique inbound message SID
-        NumMedia: int = Form(0),  # number of media attachments
-        MediaUrl0: Optional[str] = Form(None),  # first media URL (if any)
-    ) -> "TwilioWebhookRequest":  # noqa: N803 – Twilio naming
-        """Create a TwilioWebhookRequest from form data."""
-        return cls(
-            From=From,
-            MessageSid=MessageSid,
-            NumMedia=NumMedia,
-            MediaUrl0=MediaUrl0,
+    def to_signature_dict(self) -> Dict[str, Any]:
+        """Twilio signature validation needs the *original* form parameter names.
+
+        Return only the fields we model; unmodeled fields are still validated
+        via raw parse (see _parse_form_and_verify_signature).
+        """
+        return {
+            "From": self.sender_number,
+            "MessageSid": self.message_sid,
+            "NumMedia": str(self.num_media),
+            **({"MediaUrl0": self.media_url} if self.media_url else {}),
+        }
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+ALLOWED_MEDIA_SCHEMES = {"http", "https"}
+ALLOWED_MEDIA_HOST_SUFFIXES = {
+    "twilio.com",
+    "api.twilio.com",
+    "amazonaws.com",
+    # Add other trusted domains
+}
+
+
+def _is_allowed_media_url(url: str) -> bool:
+    try:
+        parsed = urlparse(url)
+        if parsed.scheme not in ALLOWED_MEDIA_SCHEMES:
+            return False
+        host = (parsed.hostname or "").lower()
+        return any(host.endswith(suf) for suf in ALLOWED_MEDIA_HOST_SUFFIXES)
+    except Exception:
+        return False
+
+
+async def _safe_send_reply(*, to: str, body: str, media_url: str | None = None) -> None:
+    """Run the blocking Twilio client send off-thread with logging guard."""
+    try:
+        await asyncio.to_thread(
+            _whatsapp_client.send_reply,
+            to=to,
+            body=body,
+            media_url=media_url,
         )
+    except Exception:
+        # Do not let a reply failure break the webhook 200 response to Twilio
+        logger.exception("Failed to send WhatsApp reply", extra={"to": to})
+
+
+def _twiml_empty() -> Response:
+    """Return an empty TwiML ACK."""
+    return Response(str(MessagingResponse()), media_type="application/xml")
+
+
+async def _parse_form_and_verify_signature(request: Request) -> Dict[str, str]:
+    """Read raw body, parse form fields before trust, and verify Twilio signature.
+
+    Returns a dict of all form params (string -> string).
+
+    IMPORTANT: Twilio signature uses the full URL including scheme + host + path + query.
+    """
+    cfg = Config()
+    if not cfg.TWILIO_AUTH_TOKEN:
+        logger.warning(
+            "Twilio auth token missing; skipping signature verification (UNSAFE)."
+        )
+        body_bytes = await request.body()
+        return dict(parse_qsl(body_bytes.decode("utf-8"), keep_blank_values=True))
+
+    body_bytes = await request.body()
+    body_str = body_bytes.decode("utf-8")
+    form_pairs = parse_qsl(body_str, keep_blank_values=True)
+    params = dict(form_pairs)
+
+    received_sig = request.headers.get("X-Twilio-Signature", "")
+    validator = RequestValidator(cfg.TWILIO_AUTH_TOKEN)
+    full_url = str(request.url)  # Twilio docs: use full URL
+
+    if not validator.validate(full_url, params, received_sig):
+        logger.warning("Twilio signature validation failed", extra={"url": full_url})
+        # Intentionally return 403 without revealing details
+        raise SignatureError("Invalid Twilio signature")
+
+    return params
+
+
+# Custom lightweight exception for clarity
+class SignatureError(Exception):
+    """Custom exception for signature validation errors."""
+
+    pass
 
 
 # ---------------------------------------------------------------------------
 # Main webhook handler
 # ---------------------------------------------------------------------------
-
-
 @router.post("/")
-async def handle_incoming_message(
-    webhook_request: TwilioWebhookRequest = Depends(  # noqa: B008 – FastAPI pattern
-        TwilioWebhookRequest.as_form,
-    ),
-) -> Response:
-    """Process an incoming WhatsApp message and reply accordingly."""
-    # Use a single client instance per request; run its sync methods off-thread
-    whatsapp_client = WhatsAppClient()
+async def handle_incoming_message(request: Request) -> Response:
+    """Process an incoming WhatsApp message and reply accordingly.
+
+    Steps:
+        1. Verify Twilio signature
+        2. Validate & parse payload
+        3. Handle no-media vs. media flow
+        4. Dispatch processing
+    """
+    try:
+        raw_params = await _parse_form_and_verify_signature(request)
+    except SignatureError:
+        # Deliberately minimal info; respond 403 so Twilio can notice & you can debug
+        return Response(status_code=status.HTTP_403_FORBIDDEN)
+    except Exception:
+        logger.exception("Unexpected error during signature verification")
+        return Response(status_code=status.HTTP_400_BAD_REQUEST)
+
+    # Parse into model (will raise ValidationError if mismatched)
+    try:
+        typed_params: Dict[str, Any] = dict(raw_params)  # widen value type
+
+        # Explicit conversions (guard for presence)
+        if "NumMedia" in typed_params:
+            try:
+                typed_params["NumMedia"] = int(typed_params["NumMedia"])
+            except ValueError:
+                typed_params["NumMedia"] = 0  # or raise / log
+
+        webhook_request = TwilioWebhookRequest(**typed_params)
+    except ValidationError as ve:
+        logger.warning("Invalid Twilio webhook payload", extra={"errors": ve.errors()})
+        return _twiml_empty()
 
     # ------------------------------------------------------------------
-    # No image attached – ask the user for one
+    # No image attached
     # ------------------------------------------------------------------
     if webhook_request.num_media == 0 or not webhook_request.media_url:
-        logger.warning(
-            "Received message without image attachment.",
+        logger.info(
+            "Message without image attachment",
             extra={
                 "sid": webhook_request.message_sid,
                 "from": webhook_request.sender_number,
             },
         )
-        await asyncio.to_thread(
-            whatsapp_client.send_reply,
+        await _safe_send_reply(
             to=webhook_request.sender_number,
             body="Please send an image to get it stylized! 🖼️",
         )
-        return Response(str(MessagingResponse()), media_type="application/xml")
+        return _twiml_empty()
 
     # ------------------------------------------------------------------
-    # Image received – acknowledge and start processing
+    # Validate media URL origin (basic allow-list)
+    # ------------------------------------------------------------------
+    if not _is_allowed_media_url(webhook_request.media_url):
+        logger.warning(
+            "Rejected media URL (not in allow-list)",
+            extra={
+                "sid": webhook_request.message_sid,
+                "url": webhook_request.media_url,
+            },
+        )
+        await _safe_send_reply(
+            to=webhook_request.sender_number,
+            body="That media host is not supported. Please resend an image from WhatsApp directly.",
+        )
+        return _twiml_empty()
+
+    # ------------------------------------------------------------------
+    # Acknowledge receipt
     # ------------------------------------------------------------------
     logger.info(
         "Image received - starting stylization",
@@ -115,24 +214,40 @@ async def handle_incoming_message(
             "from": webhook_request.sender_number,
         },
     )
-    await asyncio.to_thread(
-        whatsapp_client.send_reply,
+    await _safe_send_reply(
         to=webhook_request.sender_number,
         body="Got it! Stylizing your image now… This might take a moment. ✨",
     )
 
     # ------------------------------------------------------------------
-    # Run the heavy lifting: stylize + upload
+    # Process image
     # ------------------------------------------------------------------
     try:
         final_url = await process_image(
-            original_url=webhook_request.media_url,  # type: ignore[arg-type]
+            original_url=webhook_request.media_url,
             message_sid=webhook_request.message_sid,
         )
-
-        # Send back the stylized image
-        await asyncio.to_thread(
-            whatsapp_client.send_reply,
+    except ValueError as ve:
+        # Anticipated validation issues (e.g. unsupported MIME later)
+        logger.warning(
+            "Image validation or processing error",
+            extra={"sid": webhook_request.message_sid, "error": str(ve)},
+        )
+        await _safe_send_reply(
+            to=webhook_request.sender_number,
+            body="That image could not be processed (validation error). Try another one.",
+        )
+    except Exception:
+        logger.exception(
+            "Unhandled error processing image",
+            extra={"sid": webhook_request.message_sid},
+        )
+        await _safe_send_reply(
+            to=webhook_request.sender_number,
+            body="Sorry, something went wrong while stylizing your image. Please try again later. 😟",
+        )
+    else:
+        await _safe_send_reply(
             to=webhook_request.sender_number,
             body="Here's your stylized image! 🖼️",
             media_url=final_url,
@@ -144,22 +259,5 @@ async def handle_incoming_message(
                 "to": webhook_request.sender_number,
             },
         )
-    except Exception as exc:
-        logger.error(
-            "Failed to process image",
-            exc_info=True,
-            extra={
-                "sid": webhook_request.message_sid,
-                "error": str(exc),
-            },
-        )
-        await asyncio.to_thread(
-            whatsapp_client.send_reply,
-            to=webhook_request.sender_number,
-            body="Sorry, something went wrong while stylizing your image. Please try again later. 😟",
-        )
 
-    # ------------------------------------------------------------------
-    # Always return an empty TwiML response; Twilio only needs ACK.
-    # ------------------------------------------------------------------
-    return Response(str(MessagingResponse()), media_type="application/xml")
+    return _twiml_empty()
