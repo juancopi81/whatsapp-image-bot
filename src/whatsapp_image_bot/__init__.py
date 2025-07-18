@@ -1,2 +1,1 @@
-def main() -> None:
-    print("Hello from whatsapp-image-bot!")
+"""WhatsApp Image Stylization Bot Package."""
