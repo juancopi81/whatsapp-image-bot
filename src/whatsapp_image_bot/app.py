@@ -5,12 +5,26 @@ registers the API routes, and includes routes for the root endpoint and a simple
 The API documentation is automatically generated and available at /docs.
 """
 
+from contextlib import asynccontextmanager
+
 import uvicorn
 from fastapi import FastAPI
 from pydantic import BaseModel
 
 from .api import api_router
 from .config import Config
+from .services.image_processor import shutdown_clients
+from .utils.logger import get_logger
+
+logger = get_logger(__name__)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Manage startup and shutdown events."""
+    yield
+    logger.info("Application shutting down. Closing clients.")
+    await shutdown_clients()
 
 
 # --- Pydantic Models for Responses ---
@@ -27,7 +41,9 @@ app = FastAPI(
     title="WhatsApp Image Styler API",
     description="API for processing and stylizing images from WhatsApp.",
     version="0.1.0",
+    lifespan=lifespan,
 )
+
 
 # Load configuration (can be used in other parts of the app if needed)
 app_config = Config()
