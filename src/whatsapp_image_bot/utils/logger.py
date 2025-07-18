@@ -51,9 +51,43 @@ COLOR_MAP: Final[dict[int, str]] = {
     logging.CRITICAL: "\x1b[1;38;5;196m",  # bold red
 }
 
+STANDARD_ATTRS: Final[set[str]] = {
+    "name",
+    "msg",
+    "args",
+    "levelname",
+    "levelno",
+    "pathname",
+    "filename",
+    "module",
+    "exc_info",
+    "exc_text",
+    "stack_info",
+    "lineno",
+    "funcName",
+    "created",
+    "msecs",
+    "relativeCreated",
+    "thread",
+    "threadName",
+    "processName",
+    "process",
+    "asctime",
+    "message",
+}
+
+# Explicitly approved context fields that will be rendered as key=value.
+APPROVED_EXTRA_KEYS: Final[set[str]] = {
+    "elapsed_ms",
+    "sid",
+    "url",
+    "public_input_url",
+    "errors",
+}
+
 
 class _ColorFormatter(logging.Formatter):
-    """Adds ANSI colour codes to the *levelname* field for TTY outputs."""
+    """Colour formatter + hybrid extra rendering (approved + notice of others)."""
 
     # Base format – subclasses can tweak this string if needed.
     _FMT: Final[str] = "%(asctime)s | %(levelname)-8s | %(name)s | %(message)s"
@@ -64,10 +98,36 @@ class _ColorFormatter(logging.Formatter):
         self.use_color = use_color and sys.stderr.isatty()
 
     def format(self, record: logging.LogRecord) -> str:  # noqa: D401
+        # Preserve original levelname for other handlers
+        original_level = record.levelname
         if self.use_color:
             colour = COLOR_MAP.get(record.levelno, "")
             record.levelname = f"{colour}{record.levelname}{RESET}"
-        return super().format(record)
+        try:
+            base = super().format(record)
+        finally:
+            record.levelname = original_level
+
+        approved_parts: list[str] = []
+        unexpected: list[str] = []
+
+        for key, value in record.__dict__.items():
+            if key in APPROVED_EXTRA_KEYS and value is not None:
+                approved_parts.append(f"{key}={value}")
+            elif (
+                key not in STANDARD_ATTRS
+                and key not in APPROVED_EXTRA_KEYS
+                and not key.startswith("_")
+            ):
+                unexpected.append(key)
+
+        if unexpected:
+            approved_parts.append(f"extra_keys={','.join(sorted(unexpected))}")
+
+        if approved_parts:
+            base += " | " + " | ".join(approved_parts)
+
+        return base
 
 
 def _ensure_root_configured(
