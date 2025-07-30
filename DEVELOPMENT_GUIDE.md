@@ -144,7 +144,7 @@ _Note: `.venv/` is auto-managed by uv and should be included in `.gitignore`._
 
 **Completion Criteria**:
 
-- [ ] Unit tests provide adequate coverage of the core logic.
+- [x] Unit tests provide adequate coverage of the core logic.
 - [ ] The application can be successfully built and run using Docker.
 - [ ] Security checks (like signature validation) are implemented and working.
 - [ ] The automatically generated API documentation at `/docs` is clear and complete.
