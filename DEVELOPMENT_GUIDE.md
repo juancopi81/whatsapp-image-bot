@@ -123,10 +123,10 @@ _Note: `.venv/` is auto-managed by uv and should be included in `.gitignore`._
 
 **Completion Criteria**:
 
-- [ ] Sending an image to the WhatsApp number successfully triggers the full workflow.
-- [ ] The stylized image is correctly uploaded to cloud storage.
-- [ ] The user receives a WhatsApp message back containing the new image.
-- [ ] The application handles and logs errors from external services gracefully.
+- [x] Sending an image to the WhatsApp number successfully triggers the full workflow.
+- [x] The stylized image is correctly uploaded to cloud storage.
+- [x] The user receives a WhatsApp message back containing the new image.
+- [x] The application handles and logs errors from external services gracefully.
 
 ---
 
