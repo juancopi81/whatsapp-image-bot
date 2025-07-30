@@ -92,7 +92,6 @@ async def test_process_image_success_twilio_url(
         ) as mock_fetch,
         patch("asyncio.to_thread") as mock_to_thread,
     ):
-
         # Setup config
         mock_config = MagicMock()
         mock_config.TWILIO_ACCOUNT_SID = "test_sid"
@@ -173,7 +172,6 @@ async def test_process_image_twilio_unsupported_media_type():
             "src.whatsapp_image_bot.services.image_processor._fetch_with_retry"
         ) as mock_fetch,
     ):
-
         mock_config = MagicMock()
         mock_config.TWILIO_ACCOUNT_SID = "test_sid"
         mock_config.TWILIO_AUTH_TOKEN = "test_token"
@@ -212,7 +210,6 @@ async def test_process_image_twilio_size_limit_exceeded():
             "src.whatsapp_image_bot.services.image_processor._fetch_with_retry"
         ) as mock_fetch,
     ):
-
         mock_config = MagicMock()
         mock_config.TWILIO_ACCOUNT_SID = "test_sid"
         mock_config.TWILIO_AUTH_TOKEN = "test_token"
