@@ -1,4 +1,4 @@
-version: "3.8"
+version: "3.9"
 
 services:
   whatsapp-image-bot:
@@ -8,19 +8,16 @@ services:
     ports:
       - "8000:8000"
     environment:
-      # Twilio Configuration
+      # Non-sensitive configuration
       - TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID}
-      - TWILIO_AUTH_TOKEN=${TWILIO_AUTH_TOKEN}
       - TWILIO_PHONE_NUMBER=${TWILIO_PHONE_NUMBER}
-
-      # fal.ai Configuration
-      - FAL_KEY=${FAL_KEY}
-
-      # AWS S3 Configuration
-      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
-      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
       - AWS_REGION=${AWS_REGION}
       - S3_BUCKET_NAME=${S3_BUCKET_NAME}
+    secrets:
+      - twilio_auth_token
+      - fal_key
+      - aws_access_key_id
+      - aws_secret_access_key
     volumes:
       - ../src:/app/src
     restart: unless-stopped
@@ -29,3 +26,21 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+        reservations:
+          memory: 256M
+          cpus: '0.25'
+
+secrets:
+  twilio_auth_token:
+    environment: TWILIO_AUTH_TOKEN
+  fal_key:
+    environment: FAL_KEY
+  aws_access_key_id:
+    environment: AWS_ACCESS_KEY_ID
+  aws_secret_access_key:
+    environment: AWS_SECRET_ACCESS_KEY

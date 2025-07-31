@@ -34,15 +34,22 @@ whatsapp-image-bot/
 ├── DEVELOPMENT_GUIDE.md
 ├── pyproject.toml
 ├── .env.example
+├── .dockerignore                    # Docker build context exclusions
 ├── docker/
-│   ├── Dockerfile
-│   └── docker-compose.yml
+│   ├── Dockerfile                   # Multi-stage, security-hardened
+│   └── docker-compose.yml           # With secrets & resource limits
 ├── scripts/
-│   └── deploy.sh
+│   └── deploy.sh                    # Intelligent health checking
+├── tests/
+│   ├── test_routes.py
+│   ├── test_image_processor.py
+│   ├── test_cloud_storage.py
+│   ├── test_api_clients.py
+│   └── test_docker_container.py     # Container security & config tests
 └── src/
     └── whatsapp_image_bot/
         ├── app.py
-        ├── config.py
+        ├── config.py                # Docker secrets integration
         ├── api/
         │   ├── routes.py
         │   └── webhooks.py
@@ -123,7 +130,7 @@ To get this project running locally, follow these steps.
 
 1.  **Quick Start with Docker**
     
-    Use the automated deployment script:
+    Use the automated deployment script with intelligent health checking:
     ```bash
     ./scripts/deploy.sh
     ```
@@ -133,10 +140,19 @@ To get this project running locally, follow these steps.
     docker-compose -f docker/docker-compose.yml up -d
     ```
 
-2.  **Check Status**
+2.  **Security Features**
+    - **Non-root container**: Runs as `appuser` for enhanced security
+    - **Docker secrets**: Sensitive environment variables are managed as Docker secrets
+    - **Resource limits**: Memory and CPU limits prevent resource exhaustion
+    - **Multi-stage builds**: Optimized image size with minimal attack surface
+
+3.  **Check Status**
     ```bash
     # View logs
     docker-compose -f docker/docker-compose.yml logs -f
+    
+    # Check container health
+    docker-compose -f docker/docker-compose.yml ps
     
     # Stop services
     docker-compose -f docker/docker-compose.yml down
@@ -161,3 +177,34 @@ To get this project running locally, follow these steps.
     ```
 
     Use the public `https://...` URL provided by `ngrok` for your Twilio webhook configuration.
+
+---
+
+## Testing
+
+The project includes comprehensive tests for both application logic and Docker container functionality.
+
+### Running Tests
+
+```bash
+# Run all tests
+pytest
+
+# Run specific test categories
+pytest tests/test_docker_container.py  # Docker-specific tests
+pytest tests/test_routes.py           # API endpoint tests
+pytest tests/test_image_processor.py  # Image processing tests
+
+# Run tests with verbose output
+pytest -v
+
+# Run tests with coverage
+pytest --cov=src/whatsapp_image_bot
+```
+
+### Test Categories
+
+- **Unit Tests**: Core application logic and services
+- **Integration Tests**: API endpoints and external service integration
+- **Docker Tests**: Container security, configuration, and deployment validation
+- **Configuration Tests**: Environment variable and secrets management
