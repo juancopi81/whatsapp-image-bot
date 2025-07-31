@@ -23,7 +23,7 @@ Features
 
 Environment Variables
 ---------------------
-``LOG_LEVEL``   Override the default minimum level (e.g. ``DEBUG``).  
+``LOG_LEVEL``   Override the default minimum level (e.g. ``DEBUG``).
 ``LOG_FILE``    Write logs to this file in addition to the console.
 
 """
