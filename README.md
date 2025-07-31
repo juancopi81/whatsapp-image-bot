@@ -34,6 +34,11 @@ whatsapp-image-bot/
 ├── DEVELOPMENT_GUIDE.md
 ├── pyproject.toml
 ├── .env.example
+├── docker/
+│   ├── Dockerfile
+│   └── docker-compose.yml
+├── scripts/
+│   └── deploy.sh
 └── src/
     └── whatsapp_image_bot/
         ├── app.py
@@ -58,8 +63,13 @@ To get this project running locally, follow these steps.
 
 1.  **Prerequisites**
 
-    - Python 3.9+
-    - [uv](https://www.google.com/search?q=https://astral.sh/docs/uv%23installation) package manager
+    **For Docker deployment:**
+    - Docker and Docker Compose
+    - `ngrok` for exposing the local server
+    
+    **For local development:**
+    - Python 3.11+
+    - [uv](https://astral.sh/docs/uv#installation) package manager
     - `ngrok` for exposing the local server
 
 2.  **Clone the Repository**
@@ -88,11 +98,51 @@ To get this project running locally, follow these steps.
       ```bash
       cp .env.example .env
       ```
-    - Edit the `.env` file and add your secret keys for Twilio and your chosen AI API provider.
+    - Edit the `.env` file and add your secret keys:
+      ```bash
+      # Twilio Configuration
+      TWILIO_ACCOUNT_SID=your_twilio_account_sid
+      TWILIO_AUTH_TOKEN=your_twilio_auth_token
+      TWILIO_PHONE_NUMBER=your_twilio_phone_number
+      
+      # fal.ai Configuration
+      FAL_KEY=your_fal_api_key
+      
+      # AWS S3 Configuration
+      AWS_ACCESS_KEY_ID=your_aws_access_key
+      AWS_SECRET_ACCESS_KEY=your_aws_secret_key
+      AWS_REGION=your_aws_region
+      S3_BUCKET_NAME=your_s3_bucket_name
+      ```
 
 ---
 
-## Running for Development
+## Running the Application
+
+### Option 1: Docker Deployment (Recommended)
+
+1.  **Quick Start with Docker**
+    
+    Use the automated deployment script:
+    ```bash
+    ./scripts/deploy.sh
+    ```
+    
+    Or manually with docker-compose:
+    ```bash
+    docker-compose -f docker/docker-compose.yml up -d
+    ```
+
+2.  **Check Status**
+    ```bash
+    # View logs
+    docker-compose -f docker/docker-compose.yml logs -f
+    
+    # Stop services
+    docker-compose -f docker/docker-compose.yml down
+    ```
+
+### Option 2: Local Development
 
 1.  **Start the Server**
     With your virtual environment activated, run the Uvicorn server:
