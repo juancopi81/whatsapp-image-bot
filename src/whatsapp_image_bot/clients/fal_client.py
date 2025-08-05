@@ -1,6 +1,13 @@
-"""Client for interacting with the fal.ai image stylization API.
+"""Client for interacting with the fal.ai image processing API.
 
-This client is used to stylize an image using the fal.ai API.
+This client is used to process an image using the fal.ai API.
+
+The process_image method is used to remove a background or object from an image using the fal.ai API.
+
+The image_url is the URL of the image to process.
+
+The prompt is the prompt to use to process the image.
+
 """
 
 import fal_client
@@ -15,22 +22,23 @@ logger = get_logger(__name__)
 
 
 class FalClient(BaseAIClient):
-    """A client for interacting with the fal.ai image stylization API."""
+    """A client for interacting with the fal.ai image processing API."""
 
-    async def stylize_image(self, image_url: str) -> str:
-        """Stylizes an image using the fal.ai API.
+    async def process_image(self, image_url: str, prompt: str) -> str:
+        """Remove a background or object from an image using the fal.ai API.
 
         This method sends a request to the specified model with a prompt
         and an image URL, waits for the result, and returns the URL
-        of the stylized image.
+        of the processed image - the image with the background or object removed.
 
         Args:
         ----
-            image_url: The URL of the image to stylize.
+            image_url: The URL of the image to process.
+            prompt: The prompt to use to process the image.
 
         Returns:
         -------
-            The URL of the stylized image.
+            The URL of the processed image.
 
         Raises:
         ------
@@ -42,7 +50,7 @@ class FalClient(BaseAIClient):
         try:
             # Prepare the arguments for the API call
             arguments = {
-                "prompt": "Change to Simpsons style while maintaining the original composition and object placement",
+                "prompt": prompt,
                 "image_url": image_url,
             }
 
@@ -54,11 +62,11 @@ class FalClient(BaseAIClient):
 
             # Extract the URL of the first image from the response
             if result and "images" in result and len(result["images"]) > 0:
-                stylized_url = result["images"][0]["url"]
+                processed_url = result["images"][0]["url"]
                 logger.info(
-                    "Successfully received stylized image URL: %s", stylized_url
+                    "Successfully received processed image URL: %s", processed_url
                 )
-                return stylized_url
+                return processed_url
             else:
                 raise Exception("API call succeeded but returned no images.")
 
