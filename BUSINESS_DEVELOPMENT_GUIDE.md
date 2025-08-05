@@ -12,7 +12,7 @@ Before diving into phases, it's essential to define the target user experience. 
 
 1.  **First Contact**: A new user sends a message or image to the bot for the first time.
 
-    - **Bot's Action**: The system creates a new user record in the database, associated with their WhatsApp number, and grants them a set of free credits (e.g., 5).
+    - **Bot's Action**: The system creates a new user record in the database, associated with their WhatsApp number, and grants them a set of free credits (e.g., 3).
     - **Bot's Reply**: "Welcome! I can remove the background from your product photos. You have 3 free edits to start. Just send me an image!"
 
 2.  **Image Submission**: The user sends an image.
